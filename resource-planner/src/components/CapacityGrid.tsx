@@ -6,7 +6,14 @@ import type { Allocation } from "@/types";
 import { allocationHoursInWeek, formatWeek, getWeeks } from "@/lib/dates";
 import { AllocationDialog } from "@/components/AllocationDialog";
 
-const WEEK_COUNT = 12;
+type Horizon = 12 | 26 | 52;
+const HORIZONS: { value: Horizon; label: string }[] = [
+  { value: 12, label: "12 wks" },
+  { value: 26, label: "6 mo" },
+  { value: 52, label: "1 yr" },
+];
+/** Minimum column width shrinks at longer horizons to keep the table manageable. */
+const COL_MIN_W: Record<Horizon, number> = { 12: 64, 26: 48, 52: 36 };
 
 function cellStyle(hours: number, capacity: number): string {
   if (hours === 0) return "bg-transparent text-muted-foreground/40";
@@ -19,7 +26,8 @@ function cellStyle(hours: number, capacity: number): string {
 
 export function CapacityGrid() {
   const { resources, projects, allocations } = usePlanner();
-  const weeks = useMemo(() => getWeeks(WEEK_COUNT), []);
+  const [horizon, setHorizon] = useState<Horizon>(12);
+  const weeks = useMemo(() => getWeeks(horizon), [horizon]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Allocation | null>(null);
@@ -53,17 +61,34 @@ export function CapacityGrid() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Capacity plan</h2>
           <p className="text-sm text-muted-foreground">
-            Weekly allocated hours vs. capacity, next {WEEK_COUNT} weeks. Click a row to see the
-            project breakdown; click a project cell range to edit.
+            Weekly allocated hours vs. capacity, next {horizon} weeks. Click a row to see the
+            project breakdown; click a project cell to edit.
           </p>
         </div>
-        <Button onClick={() => openNew()}>
-          <Plus className="mr-1 h-4 w-4" /> Allocation
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex rounded-md border p-0.5">
+            {HORIZONS.map((h) => (
+              <button
+                key={h.value}
+                onClick={() => setHorizon(h.value)}
+                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                  horizon === h.value
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {h.label}
+              </button>
+            ))}
+          </div>
+          <Button onClick={() => openNew()}>
+            <Plus className="mr-1 h-4 w-4" /> Allocation
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -89,7 +114,11 @@ export function CapacityGrid() {
                 Resource
               </th>
               {weeks.map((w) => (
-                <th key={w.getTime()} className="min-w-[64px] px-1 py-2 text-center font-medium text-muted-foreground">
+                <th
+                  key={w.getTime()}
+                  className="px-1 py-2 text-center font-medium text-muted-foreground"
+                  style={{ minWidth: COL_MIN_W[horizon] }}
+                >
                   {formatWeek(w)}
                 </th>
               ))}
@@ -189,7 +218,7 @@ export function CapacityGrid() {
                             + Allocate {r.name.split(" ")[0]} to a project
                           </button>
                         </td>
-                        <td colSpan={WEEK_COUNT} />
+                        <td colSpan={horizon} />
                       </tr>
                     </>
                   )}
