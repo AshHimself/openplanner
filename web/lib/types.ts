@@ -1,3 +1,6 @@
+// App-level types (what UI components use)
+// Numeric DB fields (Postgres numeric → string) are normalised to JS number in hooks.ts
+
 export type ProjectStatus = "Planning" | "Active" | "On Hold" | "Completed";
 
 export interface Project {
@@ -9,11 +12,9 @@ export interface Project {
   color: string;
   startDate: string; // YYYY-MM-DD
   endDate: string;
-  manager: string;
-  /** Total approved budget in dollars; 0/undefined = no budget set. */
-  budget?: number;
-  /** Free-form labels used for filtering. */
-  tags?: string[];
+  manager?: string | null;
+  budget?: number | null;
+  tags?: string[] | null;
 }
 
 export interface Resource {
@@ -22,26 +23,16 @@ export interface Resource {
   role: string;
   team: string;
   capacity: number; // hours per week
-  /** Billing/cost rate per 8-hour day in dollars. */
-  dayRate?: number;
+  dayRate?: number | null;
+  avatarUrl?: string | null;
+  tags?: string[] | null;
 }
 
 export interface Allocation {
   id: string;
-  resourceId: string;
   projectId: string;
+  resourceId: string;
   hoursPerWeek: number;
   startDate: string;
   endDate: string;
-}
-
-export interface PlannerState {
-  projects: Project[];
-  resources: Resource[];
-  allocations: Allocation[];
-}
-
-export interface Settings {
-  aiEnabled: boolean;
-  aiApiKey: string;
 }

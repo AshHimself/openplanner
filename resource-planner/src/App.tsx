@@ -33,6 +33,8 @@ import { ProjectsView } from "@/components/ProjectsView";
 import { ResourcesView } from "@/components/ResourcesView";
 import { TimelineView } from "@/components/TimelineView";
 import { ReportsView } from "@/components/ReportsView";
+import { AiChat } from "@/components/AiChat";
+import { SettingsDialog } from "@/components/SettingsDialog";
 
 type View = "dashboard" | "timeline" | "capacity" | "projects" | "resources" | "reports";
 
@@ -99,6 +101,9 @@ function Shell() {
                 <span>Reset demo data</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SettingsDialog />
+            </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>
         <SidebarRail />
@@ -120,6 +125,7 @@ function Shell() {
           {view === "reports" && <ReportsView />}
         </div>
       </SidebarInset>
+      <AiChat />
     </SidebarProvider>
   );
 }

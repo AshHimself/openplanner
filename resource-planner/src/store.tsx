@@ -1,8 +1,17 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import type { Allocation, PlannerState, Project, Resource } from "@/types";
+import type { Allocation, PlannerState, Project, Resource, Settings } from "@/types";
 import { buildSeedState } from "@/data/seed";
 
 const STORAGE_KEY = "open-planner-v1";
+const SETTINGS_KEY = "open-planner-settings";
+
+function loadSettings(): Settings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) return JSON.parse(raw) as Settings;
+  } catch {}
+  return { aiEnabled: false, aiApiKey: "" };
+}
 
 function loadInitial(): PlannerState {
   try {
@@ -28,6 +37,8 @@ interface PlannerStore extends PlannerState {
   saveAllocation: (a: Allocation) => void;
   deleteAllocation: (id: string) => void;
   resetToSeed: () => void;
+  settings: Settings;
+  saveSettings: (s: Settings) => void;
 }
 
 const PlannerContext = createContext<PlannerStore | null>(null);
@@ -40,6 +51,7 @@ function upsert<T extends { id: string }>(list: T[], item: T): T[] {
 
 export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<PlannerState>(loadInitial);
+  const [settings, setSettings] = useState<Settings>(loadSettings);
 
   useEffect(() => {
     try {
@@ -48,6 +60,12 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       // storage unavailable — in-memory only
     }
   }, [state]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch {}
+  }, [settings]);
 
   const store = useMemo<PlannerStore>(
     () => ({
@@ -70,8 +88,10 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       deleteAllocation: (id) =>
         setState((s) => ({ ...s, allocations: s.allocations.filter((a) => a.id !== id) })),
       resetToSeed: () => setState(buildSeedState()),
+      settings,
+      saveSettings: setSettings,
     }),
-    [state]
+    [state, settings]
   );
 
   return <PlannerContext.Provider value={store}>{children}</PlannerContext.Provider>;
