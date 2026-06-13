@@ -27,6 +27,7 @@ import {
   Sparkles,
   Settings,
 } from "lucide-react";
+import { openAiChat } from "@/lib/ai-chat-bus";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -35,11 +36,6 @@ const navItems = [
   { href: "/projects", label: "Projects", icon: Briefcase },
   { href: "/resources", label: "Resources", icon: Users },
   { href: "/reports", label: "Reports", icon: ChartColumn },
-];
-
-const bottomItems = [
-  { href: "/ai", label: "AI assistant", icon: Sparkles },
-  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -84,16 +80,20 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
-          {bottomItems.map(({ href, label, icon: Icon }) => (
-            <SidebarMenuItem key={href}>
-              <SidebarMenuButton isActive={pathname === href} tooltip={label} asChild>
-                <Link href={href}>
-                  <Icon />
-                  <span>{label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="AI assistant" onClick={openAiChat}>
+              <Sparkles />
+              <span>AI assistant</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton isActive={pathname === "/settings"} tooltip="Settings" asChild>
+              <Link href="/settings">
+                <Settings />
+                <span>Settings</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Sign out" asChild>
               <Link href="/api/auth/signout">

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Separator } from "@/components/ui/separator";
+import { AiFloatingChat } from "@/components/ai-floating-chat";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -18,6 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </header>
         <div className="flex min-w-0 flex-1 flex-col gap-4 p-4 md:p-6">{children}</div>
       </SidebarInset>
+      <AiFloatingChat />
     </SidebarProvider>
   );
 }
