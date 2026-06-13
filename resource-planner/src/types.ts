@@ -12,6 +12,8 @@ export interface Project {
   manager: string;
   /** Total approved budget in dollars; 0/undefined = no budget set. */
   budget?: number;
+  /** Free-form labels used for filtering. */
+  tags?: string[];
 }
 
 export interface Resource {

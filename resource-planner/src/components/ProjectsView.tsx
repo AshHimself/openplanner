@@ -30,29 +30,26 @@ import { newId, usePlanner } from "@/store";
 import type { Project, ProjectStatus } from "@/types";
 import { allocationHoursInWeek, formatDate, startOfWeek, toISO, addWeeks } from "@/lib/dates";
 import { fmtCurrency, projectForecast } from "@/lib/costs";
+import { statusBadgeClass, collectTags } from "@/lib/status";
+import { TagFilter } from "@/components/TagFilter";
+import { ProjectProfile } from "@/components/ProjectProfile";
 
 const STATUSES: ProjectStatus[] = ["Planning", "Active", "On Hold", "Completed"];
 const COLORS = ["#0e7490", "#9a3412", "#3f6212", "#86198f", "#1d4ed8", "#a16207", "#be123c", "#4338ca"];
-
-function statusVariant(status: ProjectStatus): string {
-  switch (status) {
-    case "Active":
-      return "bg-emerald-100 text-emerald-800 hover:bg-emerald-100";
-    case "Planning":
-      return "bg-blue-100 text-blue-800 hover:bg-blue-100";
-    case "On Hold":
-      return "bg-amber-100 text-amber-800 hover:bg-amber-100";
-    case "Completed":
-      return "bg-stone-200 text-stone-700 hover:bg-stone-200";
-  }
-}
 
 export function ProjectsView() {
   const { projects, resources, allocations, saveProject, deleteProject } = usePlanner();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
 
   const thisWeek = useMemo(() => startOfWeek(new Date()), []);
+  const allTags = useMemo(() => collectTags(projects), [projects]);
+  const visibleProjects =
+    selectedTags.size === 0
+      ? projects
+      : projects.filter((p) => (p.tags ?? []).some((t) => selectedTags.has(t)));
 
   function statsFor(projectId: string) {
     const projAllocs = allocations.filter((a) => a.projectId === projectId);
@@ -83,7 +80,21 @@ export function ProjectsView() {
         </Button>
       </div>
 
-      <div className="rounded-md border bg-white">
+      <TagFilter
+        allTags={allTags}
+        selected={selectedTags}
+        onToggle={(tag) =>
+          setSelectedTags((prev) => {
+            const next = new Set(prev);
+            if (next.has(tag)) next.delete(tag);
+            else next.add(tag);
+            return next;
+          })
+        }
+        onClear={() => setSelectedTags(new Set())}
+      />
+
+      <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -98,7 +109,7 @@ export function ProjectsView() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {projects.map((p) => {
+            {visibleProjects.map((p) => {
               const s = statsFor(p.id);
               return (
                 <TableRow key={p.id}>
@@ -109,13 +120,25 @@ export function ProjectsView() {
                         style={{ backgroundColor: p.color }}
                       />
                       <div>
-                        <div className="font-medium">{p.name}</div>
-                        <div className="text-xs text-muted-foreground">{p.code}</div>
+                        <button
+                          className="font-medium hover:underline"
+                          onClick={() => setProfileId(p.id)}
+                        >
+                          {p.name}
+                        </button>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          {p.code}
+                          {(p.tags ?? []).map((t) => (
+                            <Badge key={t} variant="outline" className="px-1.5 py-0 text-[10px] font-normal">
+                              {t}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge className={statusVariant(p.status)} variant="secondary">
+                    <Badge className={statusBadgeClass(p.status)} variant="secondary">
                       {p.status}
                     </Badge>
                   </TableCell>
@@ -155,6 +178,8 @@ export function ProjectsView() {
           </TableBody>
         </Table>
       </div>
+
+      <ProjectProfile projectId={profileId} onOpenChange={(o) => !o && setProfileId(null)} />
 
       <ProjectDialog
         key={editing?.id ?? "new"}
@@ -216,6 +241,7 @@ function ProjectDialog({
   const [endDate, setEndDate] = useState(project?.endDate ?? toISO(addWeeks(monday, 12)));
   const [color, setColor] = useState(project?.color ?? COLORS[0]);
   const [budget, setBudget] = useState(project?.budget ? String(project.budget) : "");
+  const [tags, setTags] = useState((project?.tags ?? []).join(", "));
 
   const valid = name.trim() && code.trim() && startDate <= endDate;
 
@@ -294,12 +320,20 @@ function ProjectDialog({
             </div>
           </div>
           <div className="grid gap-1.5">
+            <Label>Tags (comma-separated)</Label>
+            <Input
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="e.g. customer, web"
+            />
+          </div>
+          <div className="grid gap-1.5">
             <Label>Color</Label>
             <div className="flex gap-2">
               {COLORS.map((c) => (
                 <button
                   key={c}
-                  className={`h-6 w-6 rounded-sm ring-offset-2 ${color === c ? "ring-2 ring-stone-900" : ""}`}
+                  className={`h-6 w-6 rounded-sm ring-offset-2 ${color === c ? "ring-2 ring-ring" : ""}`}
                   style={{ backgroundColor: c }}
                   onClick={() => setColor(c)}
                 />
@@ -335,6 +369,10 @@ function ProjectDialog({
                 endDate,
                 color,
                 budget: Number(budget) > 0 ? Number(budget) : undefined,
+                tags: tags
+                  .split(",")
+                  .map((t) => t.trim().toLowerCase())
+                  .filter(Boolean),
               });
               onOpenChange(false);
             }}

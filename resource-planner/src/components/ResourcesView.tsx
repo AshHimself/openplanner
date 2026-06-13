@@ -22,11 +22,13 @@ import { newId, usePlanner } from "@/store";
 import type { Resource } from "@/types";
 import { allocationHoursInWeek, startOfWeek } from "@/lib/dates";
 import { fmtCurrency } from "@/lib/costs";
+import { ResourceProfile } from "@/components/ResourceProfile";
 
 export function ResourcesView() {
   const { resources, allocations, saveResource, deleteResource } = usePlanner();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Resource | null>(null);
+  const [profileId, setProfileId] = useState<string | null>(null);
   const thisWeek = useMemo(() => startOfWeek(new Date()), []);
 
   return (
@@ -48,7 +50,7 @@ export function ResourcesView() {
         </Button>
       </div>
 
-      <div className="rounded-md border bg-white">
+      <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -70,7 +72,14 @@ export function ResourcesView() {
               const over = pct > 100;
               return (
                 <TableRow key={r.id}>
-                  <TableCell className="font-medium">{r.name}</TableCell>
+                  <TableCell>
+                    <button
+                      className="font-medium hover:underline"
+                      onClick={() => setProfileId(r.id)}
+                    >
+                      {r.name}
+                    </button>
+                  </TableCell>
                   <TableCell>{r.role}</TableCell>
                   <TableCell>{r.team}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.capacity}h/wk</TableCell>
@@ -79,9 +88,9 @@ export function ResourcesView() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-stone-200">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                         <div
-                          className={`h-full ${over ? "bg-red-500" : pct >= 85 ? "bg-emerald-500" : "bg-teal-600"}`}
+                          className={`h-full ${over ? "bg-red-500" : pct >= 85 ? "bg-emerald-500" : "bg-primary"}`}
                           style={{ width: `${Math.min(pct, 100)}%` }}
                         />
                       </div>
@@ -111,6 +120,8 @@ export function ResourcesView() {
           </TableBody>
         </Table>
       </div>
+
+      <ResourceProfile resourceId={profileId} onOpenChange={(o) => !o && setProfileId(null)} />
 
       <ResourceDialog
         key={editing?.id ?? "new"}
