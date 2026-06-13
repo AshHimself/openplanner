@@ -28,6 +28,7 @@ import {
   toISO,
   addWeeks,
 } from "@/lib/planner";
+import { ProjectProfile } from "@/components/project-profile";
 
 const BLANK: Omit<Project, "id"> = {
   name: "",
@@ -59,6 +60,7 @@ export default function ProjectsPage() {
   const [form, setForm] = useState<Omit<Project, "id">>(BLANK);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [profileId, setProfileId] = useState<string | null>(null);
 
   // Allocation sheet
   const [allocSheetOpen, setAllocSheetOpen] = useState(false);
@@ -262,7 +264,12 @@ export default function ProjectsPage() {
                           style={{ backgroundColor: p.color }}
                         />
                         <div>
-                          <div className="font-medium">{p.name}</div>
+                          <button
+                            onClick={() => setProfileId(p.id)}
+                            className="font-medium hover:underline text-left"
+                          >
+                            {p.name}
+                          </button>
                           <div className="text-xs text-muted-foreground">
                             {p.code}
                             {(p.tags ?? []).map((t) => (
@@ -511,6 +518,9 @@ export default function ProjectsPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Project Profile */}
+      <ProjectProfile projectId={profileId} onOpenChange={(o) => !o && setProfileId(null)} />
 
       {/* Allocation Sheet */}
       <Sheet open={allocSheetOpen} onOpenChange={setAllocSheetOpen}>

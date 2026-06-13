@@ -11,6 +11,7 @@ import {
   STATUS_COLORS,
 } from "@/lib/planner";
 import type { Project } from "@/lib/planner";
+import { ProjectProfile } from "@/components/project-profile";
 
 const LEFT_W = 260;
 const ROW_H = 52;
@@ -43,6 +44,7 @@ interface DragState {
 export default function TimelinePage() {
   const { projects, allocations, resources, isLoading } = usePlanner();
   const [scale, setScale] = useState<Scale>("month");
+  const [profileId, setProfileId] = useState<string | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -221,7 +223,12 @@ export default function TimelinePage() {
                     className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
                     style={{ backgroundColor: p.color }}
                   />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.name}</span>
+                  <button
+                    onClick={() => setProfileId(p.id)}
+                    className="min-w-0 flex-1 truncate text-sm font-medium text-left hover:underline"
+                  >
+                    {p.name}
+                  </button>
                   <span
                     className={`shrink-0 rounded-full px-1.5 py-0 text-[10px] font-medium ${STATUS_COLORS[p.status]}`}
                   >
@@ -360,6 +367,7 @@ export default function TimelinePage() {
           </div>
         </div>
       </div>
+      <ProjectProfile projectId={profileId} onOpenChange={(o) => !o && setProfileId(null)} />
     </div>
   );
 }

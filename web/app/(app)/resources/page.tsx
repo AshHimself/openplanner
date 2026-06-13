@@ -15,6 +15,7 @@ import {
   toISO,
   addWeeks,
 } from "@/lib/planner";
+import { ResourceProfile } from "@/components/resource-profile";
 
 const BLANK: Omit<Resource, "id"> = {
   name: "",
@@ -52,6 +53,7 @@ export default function ResourcesPage() {
   const [form, setForm] = useState<Omit<Resource, "id">>(BLANK);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [profileId, setProfileId] = useState<string | null>(null);
 
   const thisWeek = startOfWeek(new Date());
   const teams = ["All", ...Array.from(new Set(resources.map((r) => r.team))).sort()];
@@ -188,7 +190,12 @@ export default function ResourcesPage() {
                           {initials(r.name)}
                         </div>
                         <div>
-                          <div className="font-medium">{r.name}</div>
+                          <button
+                            onClick={() => setProfileId(r.id)}
+                            className="font-medium hover:underline text-left"
+                          >
+                            {r.name}
+                          </button>
                           <div className="text-xs text-muted-foreground">{r.role}</div>
                         </div>
                       </div>
@@ -268,6 +275,9 @@ export default function ResourcesPage() {
           </table>
         </div>
       )}
+
+      {/* Resource Profile */}
+      <ResourceProfile resourceId={profileId} onOpenChange={(o) => !o && setProfileId(null)} />
 
       {/* Add/Edit Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>

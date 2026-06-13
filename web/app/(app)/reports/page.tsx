@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { CalendarClock, Layers, ChartColumn, TriangleAlert } from "lucide-react";
 import {
   usePlanner,
@@ -14,6 +14,7 @@ import {
   addWeeks,
 } from "@/lib/planner";
 import type { Resource } from "@/lib/planner";
+import { ResourceProfile } from "@/components/resource-profile";
 
 const HORIZON = 12;
 const FREE_THRESHOLD = 8;
@@ -55,6 +56,7 @@ function KpiCard({
 
 export default function ReportsPage() {
   const { resources, projects, allocations, isLoading } = usePlanner();
+  const [profileId, setProfileId] = useState<string | null>(null);
   const weeks = useMemo(() => getWeeks(HORIZON), []);
 
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
@@ -435,7 +437,12 @@ export default function ReportsPage() {
                 ({ resource: r, frees, nextOpening, fullyFreeFrom, freeTotal, avgUtil }) => (
                   <tr key={r.id} className="hover:bg-muted/20">
                     <td className="px-4 py-2.5">
-                      <div className="font-medium">{r.name}</div>
+                      <button
+                        onClick={() => setProfileId(r.id)}
+                        className="font-medium hover:underline text-left"
+                      >
+                        {r.name}
+                      </button>
                       <div className="text-xs text-muted-foreground">{r.role}</div>
                     </td>
                     <td
@@ -539,6 +546,8 @@ export default function ReportsPage() {
           spare capacity in the affected weeks. Apply by editing the allocation in Capacity plan.
         </p>
       </div>
+
+      <ResourceProfile resourceId={profileId} onOpenChange={(o) => !o && setProfileId(null)} />
     </div>
   );
 }
