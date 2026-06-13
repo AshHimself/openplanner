@@ -20,6 +20,7 @@ export function buildSeedState(): PlannerState {
         endDate: wk(10),
         manager: "Dana Whitfield",
         budget: 100000,
+        tags: ["customer", "web"],
       },
       {
         id: "p2",
@@ -32,6 +33,7 @@ export function buildSeedState(): PlannerState {
         endDate: wk(6),
         manager: "Luis Romero",
         budget: 200000,
+        tags: ["data", "infrastructure"],
       },
       {
         id: "p3",
@@ -44,6 +46,7 @@ export function buildSeedState(): PlannerState {
         endDate: wk(16),
         manager: "Dana Whitfield",
         budget: 150000,
+        tags: ["customer", "mobile"],
       },
       {
         id: "p4",
@@ -56,6 +59,7 @@ export function buildSeedState(): PlannerState {
         endDate: wk(8),
         manager: "Priya Nair",
         budget: 60000,
+        tags: ["compliance", "security"],
       },
       {
         id: "p5",
@@ -68,6 +72,7 @@ export function buildSeedState(): PlannerState {
         endDate: wk(24),
         manager: "Luis Romero",
         budget: 250000,
+        tags: ["finance", "infrastructure"],
       },
       {
         id: "p6",
@@ -80,6 +85,7 @@ export function buildSeedState(): PlannerState {
         endDate: wk(12),
         manager: "Priya Nair",
         budget: 40000,
+        tags: ["internal"],
       },
     ],
     resources: [

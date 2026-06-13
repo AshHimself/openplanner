@@ -9,12 +9,12 @@ import { AllocationDialog } from "@/components/AllocationDialog";
 const WEEK_COUNT = 12;
 
 function cellStyle(hours: number, capacity: number): string {
-  if (hours === 0) return "bg-transparent text-stone-300";
+  if (hours === 0) return "bg-transparent text-muted-foreground/40";
   const ratio = hours / capacity;
   if (ratio > 1) return "bg-red-100 text-red-900 font-semibold";
   if (ratio >= 0.85) return "bg-emerald-100 text-emerald-900";
-  if (ratio >= 0.5) return "bg-teal-50 text-teal-900";
-  return "bg-stone-100 text-stone-600";
+  if (ratio >= 0.5) return "bg-teal-50 text-teal-900 dark:bg-teal-950 dark:text-teal-100";
+  return "bg-muted text-muted-foreground";
 }
 
 export function CapacityGrid() {
@@ -68,10 +68,10 @@ export function CapacityGrid() {
 
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm bg-stone-100 ring-1 ring-stone-200" /> Under 50%
+          <span className="inline-block h-3 w-3 rounded-sm bg-muted ring-1 ring-border" /> Under 50%
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm bg-teal-50 ring-1 ring-teal-200" /> 50–85%
+          <span className="inline-block h-3 w-3 rounded-sm bg-teal-50 ring-1 ring-teal-200 dark:bg-teal-950" /> 50–85%
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded-sm bg-emerald-100 ring-1 ring-emerald-200" /> 85–100%
@@ -81,15 +81,15 @@ export function CapacityGrid() {
         </span>
       </div>
 
-      <div className="overflow-x-auto rounded-md border bg-white">
+      <div className="overflow-x-auto rounded-md border bg-card">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b bg-stone-50 text-left">
-              <th className="sticky left-0 z-10 min-w-[220px] bg-stone-50 px-3 py-2 font-medium">
+            <tr className="border-b bg-muted/50 text-left">
+              <th className="sticky left-0 z-10 min-w-[220px] bg-muted/50 px-3 py-2 font-medium">
                 Resource
               </th>
               {weeks.map((w) => (
-                <th key={w.getTime()} className="min-w-[64px] px-1 py-2 text-center font-medium text-stone-600">
+                <th key={w.getTime()} className="min-w-[64px] px-1 py-2 text-center font-medium text-muted-foreground">
                   {formatWeek(w)}
                 </th>
               ))}
@@ -105,15 +105,15 @@ export function CapacityGrid() {
               return (
                 <Fragment key={r.id}>
                   <tr
-                    className="cursor-pointer border-b transition-colors hover:bg-stone-50"
+                    className="cursor-pointer border-b transition-colors hover:bg-muted/50"
                     onClick={() => toggle(r.id)}
                   >
-                    <td className="sticky left-0 z-10 bg-white px-3 py-2">
+                    <td className="sticky left-0 z-10 bg-card px-3 py-2">
                       <div className="flex items-center gap-2">
                         {isOpen ? (
-                          <ChevronDown className="h-4 w-4 shrink-0 text-stone-400" />
+                          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                         ) : (
-                          <ChevronRight className="h-4 w-4 shrink-0 text-stone-400" />
+                          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                         )}
                         <div>
                           <div className="font-medium">{r.name}</div>
@@ -142,13 +142,13 @@ export function CapacityGrid() {
                         return (
                           <tr
                             key={a.id}
-                            className="cursor-pointer border-b bg-stone-50/60 text-xs hover:bg-stone-100"
+                            className="cursor-pointer border-b bg-muted/40 text-xs hover:bg-muted"
                             onClick={(e) => {
                               e.stopPropagation();
                               openEdit(a);
                             }}
                           >
-                            <td className="sticky left-0 z-10 bg-stone-50 py-1.5 pl-10 pr-3">
+                            <td className="sticky left-0 z-10 bg-muted py-1.5 pl-10 pr-3">
                               <span className="flex items-center gap-2">
                                 <span
                                   className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
@@ -169,7 +169,7 @@ export function CapacityGrid() {
                                       {h}
                                     </span>
                                   ) : (
-                                    <span className="text-stone-300">·</span>
+                                    <span className="text-muted-foreground/40">·</span>
                                   )}
                                 </td>
                               );
@@ -177,10 +177,10 @@ export function CapacityGrid() {
                           </tr>
                         );
                       })}
-                      <tr className="border-b bg-stone-50/60">
-                        <td className="sticky left-0 z-10 bg-stone-50 py-1 pl-10 pr-3" colSpan={1}>
+                      <tr className="border-b bg-muted/40">
+                        <td className="sticky left-0 z-10 bg-muted py-1 pl-10 pr-3" colSpan={1}>
                           <button
-                            className="text-xs text-teal-700 hover:underline"
+                            className="text-xs font-medium text-primary hover:underline"
                             onClick={(e) => {
                               e.stopPropagation();
                               openNew(r.id);

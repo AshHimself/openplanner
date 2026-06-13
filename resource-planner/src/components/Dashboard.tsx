@@ -148,7 +148,7 @@ export function Dashboard({ onGoToCapacity }: { onGoToCapacity: () => void }) {
                     {hours}h · {(hours / 40).toFixed(1)} FTE
                   </span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-stone-100">
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full"
                     style={{
@@ -196,7 +196,7 @@ export function Dashboard({ onGoToCapacity }: { onGoToCapacity: () => void }) {
                       </span>
                     )}
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-stone-100">
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div
                       className={`h-full rounded-full ${over ? "bg-red-500" : "bg-emerald-500"}`}
                       style={{ width: budget ? `${pct}%` : "0%" }}
@@ -239,7 +239,7 @@ export function Dashboard({ onGoToCapacity }: { onGoToCapacity: () => void }) {
                 {conflicts.length > 8 && (
                   <li>
                     <button
-                      className="text-sm text-teal-700 hover:underline"
+                      className="text-sm font-medium text-primary hover:underline"
                       onClick={onGoToCapacity}
                     >
                       View all {conflicts.length} in the capacity plan →
