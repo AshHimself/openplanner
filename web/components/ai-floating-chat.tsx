@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { A2uiSurface, basicCatalog } from "@a2ui/react/v0_9";
+import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Bot, Send, X, Minus, Sparkles, Loader2, AlertTriangle } from "lucide-react";
@@ -21,10 +23,60 @@ import {
 
 const KEY = "openplanner_anthropic_key";
 
+type MsgState = "buffering" | "a2ui" | "text";
+
 interface Message {
   id: string;
   role: "user" | "assistant";
-  content: string;
+  state: MsgState;
+  rawText: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  a2uiSurface?: any;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseA2UIv9(raw: string): any | null {
+  const tagged = raw.match(/<a2ui>([\s\S]*?)<\/a2ui>/);
+  const src = (tagged ? tagged[1] : raw)
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+
+  const tryProcess = (jsonStr: string) => {
+    let parsed: unknown;
+    try { parsed = JSON.parse(jsonStr); } catch { return null; }
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    try {
+      const processor = new MessageProcessor([basicCatalog]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      processor.processMessages(parsed as any);
+      const surfaces = Array.from(processor.model.surfacesMap.values());
+      return surfaces[0] ?? null;
+    } catch { return null; }
+  };
+
+  // Strategy 1: as-is
+  const r1 = tryProcess(src);
+  if (r1) return r1;
+
+  // Strategy 2: insert closing chars before the last ]} (fixes truncated last component)
+  const lastEnd = src.lastIndexOf("]}");
+  if (lastEnd !== -1) {
+    for (let n = 1; n <= 5; n++) {
+      const r = tryProcess(src.slice(0, lastEnd) + "}".repeat(n) + src.slice(lastEnd));
+      if (r) return r;
+    }
+  }
+
+  // Strategy 3: append closing sequences (handles truncated arrays)
+  const trimmed = src.replace(/[,\s]+$/, "");
+  for (const suffix of ["]", "}]", "}]}]", "}}]", "}}}]", "}}]}]"]) {
+    const r = tryProcess(trimmed + suffix);
+    if (r) return r;
+  }
+
+  return null;
 }
 
 function buildContext(
@@ -38,7 +90,6 @@ function buildContext(
   const projectLines = projects.map((p) => {
     const forecast = projectForecast(p.id, allocations, resources);
     const budget = p.budget ? formatCurrency(p.budget) : "no budget";
-    const fc = formatCurrency(forecast);
     const variance = p.budget
       ? forecast > p.budget
         ? `over by ${formatCurrency(forecast - p.budget)}`
@@ -47,7 +98,7 @@ function buildContext(
     const staffed = allocations
       .filter((a) => a.projectId === p.id)
       .reduce((s, a) => s + hoursInWeek(a, thisWeek), 0);
-    return `- ${p.name} (${p.code}) | ${p.status} | P${p.priority} | Manager: ${p.manager || "none"} | ${p.startDate}→${p.endDate} | Budget: ${budget} | Forecast: ${fc}${variance ? ` | ${variance}` : ""} | Staffed this wk: ${staffed}h`;
+    return `- ${p.name} (${p.code}) | ${p.status} | P${p.priority} | Manager: ${p.manager || "none"} | ${p.startDate}→${p.endDate} | Budget: ${budget} | Forecast: ${formatCurrency(forecast)}${variance ? ` | ${variance}` : ""} | Staffed this wk: ${staffed}h`;
   });
 
   const resourceLines = resources.map((r) => {
@@ -83,7 +134,7 @@ function buildContext(
   });
 
   return [
-    `You are an expert resource planning assistant embedded in OpenPlanner. Be concise and data-driven. Use markdown for structure — bold key names, use lists for multiple items. Today is ${today}.`,
+    `You are an expert resource planning assistant embedded in OpenPlanner. Today is ${today}.`,
     ``,
     `PROJECTS (${projects.length}):`,
     ...projectLines,
@@ -113,15 +164,9 @@ export function AiFloatingChat() {
   const [streaming, setStreaming] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    setApiKey(localStorage.getItem(KEY));
-  }, []);
-
-  // subscribe to open events from sidebar button
+  useEffect(() => { setApiKey(localStorage.getItem(KEY)); }, []);
   useEffect(() => onOpenAiChat(() => { setOpen(true); setMinimised(false); }), []);
-
   useEffect(() => {
     if (!minimised) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, minimised]);
@@ -130,8 +175,9 @@ export function AiFloatingChat() {
     const content = (text ?? input).trim();
     if (!content || streaming || !apiKey) return;
 
-    const userMsg: Message = { id: crypto.randomUUID(), role: "user", content };
-    const assistantMsg: Message = { id: crypto.randomUUID(), role: "assistant", content: "" };
+    const userMsg: Message = { id: crypto.randomUUID(), role: "user", state: "text", rawText: content };
+    const assistantId = crypto.randomUUID();
+    const assistantMsg: Message = { id: assistantId, role: "assistant", state: "buffering", rawText: "" };
 
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setInput("");
@@ -139,9 +185,11 @@ export function AiFloatingChat() {
     setMinimised(false);
 
     const context = buildContext(projects, resources, allocations);
-    const history = [...messages, userMsg].map((m) => ({ role: m.role, content: m.content }));
+    const history = [...messages, userMsg].map((m) => ({ role: m.role, content: m.rawText }));
 
     abortRef.current = new AbortController();
+    let buffer = "";
+
     try {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
@@ -152,26 +200,24 @@ export function AiFloatingChat() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
+        const errText = `Error: ${err?.error?.message ?? err?.error ?? "Unknown error"}`;
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMsg.id
-              ? { ...m, content: `**Error:** ${err?.error?.message ?? err?.error ?? "Unknown error"}` }
-              : m
-          )
+          prev.map((m) => m.id === assistantId ? { ...m, state: "text", rawText: errText } : m)
         );
         return;
       }
 
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
-      let buffer = "";
+      let sseBuffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split("\n");
+        sseBuffer = lines.pop() ?? "";
+
         for (const line of lines) {
           if (!line.startsWith("data:")) continue;
           const data = line.slice(5).trim();
@@ -179,20 +225,31 @@ export function AiFloatingChat() {
           try {
             const parsed = JSON.parse(data);
             if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMsg.id ? { ...m, content: m.content + parsed.delta.text } : m
-                )
-              );
+              buffer += parsed.delta.text as string;
             }
-          } catch { /* skip */ }
+          } catch { /* skip malformed SSE */ }
         }
+      }
+
+      // Stream complete — parse v0.9 A2UI messages, fall back to markdown
+      const surface = parseA2UIv9(buffer);
+      if (surface) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, state: "a2ui", rawText: buffer, a2uiSurface: surface } : m
+          )
+        );
+      } else {
+        const fallback = buffer.replace(/<\/?a2ui>/g, "").trim() || "No response.";
+        setMessages((prev) =>
+          prev.map((m) => m.id === assistantId ? { ...m, state: "text", rawText: fallback } : m)
+        );
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantMsg.id ? { ...m, content: "Connection error. Please try again." } : m
+          m.id === assistantId ? { ...m, state: "text", rawText: "Connection error. Please try again." } : m
         )
       );
     } finally {
@@ -211,12 +268,11 @@ export function AiFloatingChat() {
     setStreaming(false);
   }
 
-  // FAB button when closed
   if (!open) {
     return (
       <button
         onClick={() => { setOpen(true); setMinimised(false); }}
-        className="fixed bottom-6 right-6 z-50 flex h-13 w-13 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 hover:shadow-xl"
+        className="fixed bottom-6 right-6 z-50 flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 hover:shadow-xl"
         style={{ width: 52, height: 52 }}
         title="AI assistant"
       >
@@ -228,7 +284,7 @@ export function AiFloatingChat() {
   return (
     <div
       className={`fixed bottom-6 right-6 z-50 flex flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl transition-all duration-200 ${
-        minimised ? "h-14 w-72" : "h-[600px] w-[420px]"
+        minimised ? "h-14 w-72" : "h-[620px] w-[440px]"
       }`}
       style={{ maxWidth: "calc(100vw - 24px)", maxHeight: "calc(100vh - 24px)" }}
     >
@@ -263,7 +319,6 @@ export function AiFloatingChat() {
       </div>
 
       {minimised ? null : !apiKey ? (
-        /* No key state */
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
           <Sparkles className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
@@ -312,27 +367,29 @@ export function AiFloatingChat() {
                     >
                       {m.role === "user" ? "U" : <Bot className="h-3 w-3" />}
                     </div>
-                    <div
-                      className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                        m.role === "user"
-                          ? "rounded-tr-sm bg-primary text-primary-foreground"
-                          : "rounded-tl-sm bg-muted"
-                      }`}
-                    >
-                      {m.role === "assistant" ? (
-                        m.content ? (
-                          <div className="prose prose-sm prose-neutral max-w-none dark:prose-invert [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_h1]:text-sm [&_h2]:text-sm [&_h3]:text-xs [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold [&_strong]:font-semibold [&_code]:rounded [&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[11px]">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {m.content}
-                            </ReactMarkdown>
-                          </div>
-                        ) : (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                        )
-                      ) : (
-                        m.content
-                      )}
-                    </div>
+
+                    {m.role === "user" ? (
+                      <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-primary px-3 py-2 text-sm text-primary-foreground">
+                        {m.rawText}
+                      </div>
+                    ) : m.state === "buffering" ? (
+                      <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm bg-muted px-4 py-3">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Thinking…</span>
+                      </div>
+                    ) : m.state === "a2ui" && m.a2uiSurface ? (
+                      <div className="max-w-[90%] min-w-0 rounded-2xl rounded-tl-sm bg-muted p-3 text-sm">
+                        <A2uiSurface surface={m.a2uiSurface} />
+                      </div>
+                    ) : (
+                      <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-muted px-3 py-2">
+                        <div className="prose prose-sm prose-neutral max-w-none dark:prose-invert [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:font-semibold [&_code]:rounded [&_code]:bg-black/10 [&_code]:px-1 [&_code]:text-[11px]">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {m.rawText}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <div ref={bottomRef} />
@@ -350,7 +407,6 @@ export function AiFloatingChat() {
             )}
             <div className="flex gap-2">
               <Textarea
-                ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKey}
@@ -373,7 +429,7 @@ export function AiFloatingChat() {
               </Button>
             </div>
             <p className="mt-1 text-[10px] text-muted-foreground">
-              claude-haiku-4-5 · key in browser only
+              claude-haiku-4-5 · a2ui v0.9 · key in browser only
             </p>
           </div>
         </>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./a2ui.css";
 import { NavProgress } from "@/components/nav-progress";
 
 export const metadata: Metadata = {

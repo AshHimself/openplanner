@@ -13,6 +13,8 @@
     "db:seed": "dotenv -e .env.local -- npx tsx scripts/seed-admin.ts"
   },
   "dependencies": {
+    "@a2ui/react": "^0.10.0",
+    "@a2ui/web_core": "^0.10.0",
     "@base-ui/react": "^1.5.0",
     "@radix-ui/react-dialog": "^1.1.16",
     "@radix-ui/react-label": "^2.1.9",

@@ -4,3 +4,6 @@ dist/
 preview-dist/
 .claude/
 *.local
+
+.vercel
+.env.local
