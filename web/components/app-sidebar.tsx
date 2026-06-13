@@ -24,6 +24,8 @@ import {
   Users,
   LogOut,
   LayoutDashboard,
+  Sparkles,
+  Settings,
 } from "lucide-react";
 
 const navItems = [
@@ -33,6 +35,11 @@ const navItems = [
   { href: "/projects", label: "Projects", icon: Briefcase },
   { href: "/resources", label: "Resources", icon: Users },
   { href: "/reports", label: "Reports", icon: ChartColumn },
+];
+
+const bottomItems = [
+  { href: "/ai", label: "AI assistant", icon: Sparkles },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -77,6 +84,16 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
+          {bottomItems.map(({ href, label, icon: Icon }) => (
+            <SidebarMenuItem key={href}>
+              <SidebarMenuButton isActive={pathname === href} tooltip={label} asChild>
+                <Link href={href}>
+                  <Icon />
+                  <span>{label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Sign out" asChild>
               <Link href="/api/auth/signout">
