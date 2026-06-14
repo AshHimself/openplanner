@@ -14,8 +14,10 @@ import {
   hoursInWeek,
   toISO,
   addWeeks,
+  formatDate,
 } from "@/lib/planner";
 import { ResourceProfile } from "@/components/resource-profile";
+import { TableSkeleton } from "@/components/skeletons";
 
 const BLANK: Omit<Resource, "id"> = {
   name: "",
@@ -25,6 +27,8 @@ const BLANK: Omit<Resource, "id"> = {
   dayRate: null,
   avatarUrl: "",
   tags: [],
+  startDate: null,
+  endDate: null,
 };
 
 function initials(name: string): string {
@@ -79,13 +83,20 @@ export default function ResourcesPage() {
       dayRate: r.dayRate ?? null,
       avatarUrl: r.avatarUrl ?? "",
       tags: r.tags ?? [],
+      startDate: r.startDate ?? null,
+      endDate: r.endDate ?? null,
     });
     setSheetOpen(true);
   }
 
   async function save() {
     setSaving(true);
-    const payload = { ...form, dayRate: form.dayRate || null };
+    const payload = {
+      ...form,
+      dayRate: form.dayRate || null,
+      startDate: form.startDate || null,
+      endDate: form.endDate || null,
+    };
     if (editing) {
       await fetch(`/api/resources/${editing.id}`, {
         method: "PUT",
@@ -112,8 +123,9 @@ export default function ResourcesPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        Loading…
+      <div className="space-y-6">
+        <div className="h-10 w-48 animate-pulse rounded-md bg-primary/10" />
+        <TableSkeleton rows={6} />
       </div>
     );
   }
@@ -196,7 +208,14 @@ export default function ResourcesPage() {
                           >
                             {r.name}
                           </button>
-                          <div className="text-xs text-muted-foreground">{r.role}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {r.role}
+                            {r.endDate && (
+                              <span className="ml-1.5 rounded bg-amber-100 px-1 py-0 text-[10px] text-amber-700">
+                                until {formatDate(r.endDate)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -359,6 +378,30 @@ export default function ResourcesPage() {
                 placeholder="e.g. senior, fullstack"
               />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="r-start">Available from</Label>
+                <Input
+                  id="r-start"
+                  type="date"
+                  value={form.startDate ?? ""}
+                  onChange={(e) => setForm({ ...form, startDate: e.target.value || null })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="r-end">Available until</Label>
+                <Input
+                  id="r-end"
+                  type="date"
+                  value={form.endDate ?? ""}
+                  onChange={(e) => setForm({ ...form, endDate: e.target.value || null })}
+                />
+              </div>
+            </div>
+            <p className="-mt-2 text-xs text-muted-foreground">
+              Leave blank for permanent staff. Set an end date for contractors or fixed-term
+              resources so forecasts know when they finish.
+            </p>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setSheetOpen(false)}>
                 Cancel

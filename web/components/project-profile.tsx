@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
-import { AlertTriangle } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertTriangle, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { LogTimeSheet } from "@/components/log-time-sheet";
 import {
   Sheet,
   SheetContent,
@@ -23,13 +25,18 @@ import {
   type Project,
   type Resource,
   type Allocation,
+  type TimesheetEntry,
   usePlanner,
+  useTimesheets,
   addWeeks,
   startOfWeek,
   parseLocalDate,
+  toISO,
   hoursInWeek,
   allocationCost,
   projectForecast,
+  projectActualHours,
+  projectActualCost,
   formatCurrency,
   formatDate,
   formatWeek,
@@ -43,13 +50,19 @@ interface Props {
 
 export function ProjectProfile({ projectId, onOpenChange }: Props) {
   const { projects, resources, allocations } = usePlanner();
+  const { timesheets } = useTimesheets();
   const project = projects.find((p) => p.id === projectId) ?? null;
 
   return (
     <Sheet open={!!project} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
         {project && (
-          <ProfileBody project={project} resources={resources} allocations={allocations} />
+          <ProfileBody
+            project={project}
+            resources={resources}
+            allocations={allocations}
+            timesheets={timesheets}
+          />
         )}
       </SheetContent>
     </Sheet>
@@ -66,10 +79,12 @@ function ProfileBody({
   project: p,
   resources,
   allocations,
+  timesheets,
 }: {
   project: Project;
   resources: Resource[];
   allocations: Allocation[];
+  timesheets: TimesheetEntry[];
 }) {
   const resourceById = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
   const projAllocs = useMemo(
@@ -112,8 +127,26 @@ function ProfileBody({
   const forecast = projectForecast(p.id, allocations, resources);
   const avgFte = totalPlanned / (weekCount * 40);
 
+  const projTimesheets = timesheets.filter((t) => t.projectId === p.id);
+  const actualHours = projectActualHours(p.id, timesheets);
+  const actualCost = projectActualCost(p.id, timesheets, resources);
+  const isOverBudgetActual = p.budget ? actualCost > p.budget : false;
+
+  const actualWeekly = weeks.map((w) => {
+    const weekStr = toISO(w);
+    return projTimesheets
+      .filter((t) => t.weekOf === weekStr)
+      .reduce((s, t) => s + t.hoursLogged, 0);
+  });
+
+  const [logTimeOpen, setLogTimeOpen] = useState(false);
+
   const risks: string[] = [];
-  if (p.budget && forecast > p.budget)
+  if (isOverBudgetActual)
+    risks.push(
+      `Actual spend (${formatCurrency(actualCost)}) exceeds budget by ${formatCurrency(actualCost - (p.budget ?? 0))}.`
+    );
+  else if (p.budget && forecast > p.budget)
     risks.push(`Forecast cost exceeds budget by ${formatCurrency(forecast - p.budget)}.`);
   if (unstaffedWeeks > 0)
     risks.push(
@@ -133,6 +166,7 @@ function ProfileBody({
   return (
     <div className="space-y-5">
       <SheetHeader className="space-y-2 pr-8">
+        <div className="flex items-start justify-between gap-2">
         <SheetTitle className="flex items-center gap-2.5">
           <span
             className="inline-block h-3.5 w-3.5 shrink-0 rounded-sm"
@@ -143,6 +177,16 @@ function ProfileBody({
             {p.status}
           </Badge>
         </SheetTitle>
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0"
+          onClick={() => setLogTimeOpen(true)}
+        >
+          <Clock className="mr-1.5 h-3.5 w-3.5" />
+          Log Time
+        </Button>
+        </div>
         <SheetDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="font-medium text-foreground">{p.code}</span>
           <span>·</span>
@@ -186,11 +230,35 @@ function ProfileBody({
         />
       </div>
 
+      {/* Actuals KPIs — only shown when timesheet data exists */}
+      {actualHours > 0 && (
+        <div className="grid grid-cols-3 gap-3 rounded-md border border-dashed p-3">
+          <div className="col-span-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Actuals (from timesheets)
+          </div>
+          <Kpi label="Hours logged" value={`${actualHours}h`} />
+          <Kpi
+            label="Actual spend"
+            value={actualCost > 0 ? formatCurrency(actualCost) : `${actualHours}h logged`}
+            tone={isOverBudgetActual ? "bad" : p.budget ? "good" : undefined}
+          />
+          <Kpi
+            label={isOverBudgetActual ? "Over budget" : "Budget remaining"}
+            value={
+              p.budget
+                ? formatCurrency(Math.abs((p.budget ?? 0) - actualCost))
+                : "—"
+            }
+            tone={isOverBudgetActual ? "bad" : p.budget ? "good" : undefined}
+          />
+        </div>
+      )}
+
       {/* Burndown */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">
-            Burndown — scheduled work remaining vs. ideal
+            Burndown — scheduled vs. actual work remaining
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -199,7 +267,13 @@ function ProfileBody({
               No resources are scheduled within the project dates — nothing to burn down.
             </p>
           ) : (
-            <Burndown weeks={weeks} weekly={weekly} total={totalPlanned} color={p.color} />
+            <Burndown
+              weeks={weeks}
+              weekly={weekly}
+              actualWeekly={actualHours > 0 ? actualWeekly : undefined}
+              total={totalPlanned}
+              color={p.color}
+            />
           )}
         </CardContent>
       </Card>
@@ -316,6 +390,12 @@ function ProfileBody({
           </div>
         </CardContent>
       </Card>
+
+      <LogTimeSheet
+        open={logTimeOpen}
+        onOpenChange={setLogTimeOpen}
+        defaultProjectId={p.id}
+      />
     </div>
   );
 }
@@ -338,11 +418,13 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: "goo
 function Burndown({
   weeks,
   weekly,
+  actualWeekly,
   total,
   color,
 }: {
   weeks: Date[];
   weekly: number[];
+  actualWeekly?: number[];
   total: number;
   color: string;
 }) {
@@ -356,15 +438,36 @@ function Burndown({
   const x = (i: number) => M.l + (i / n) * iw;
   const y = (h: number) => M.t + (1 - h / total) * ih;
 
+  // Planned burndown path
   let cum = 0;
   const pts = [{ px: x(0), py: y(total) }];
   weekly.forEach((h, i) => {
     cum += h;
     pts.push({ px: x(i + 1), py: y(total - cum) });
   });
-  const path = pts
+  const plannedPath = pts
     .map((p, i) => `${i === 0 ? "M" : "L"}${p.px.toFixed(1)},${p.py.toFixed(1)}`)
     .join(" ");
+
+  // Actual burndown path (only up to where we have data)
+  let actualPath: string | null = null;
+  if (actualWeekly) {
+    let aCum = 0;
+    const aPts = [{ px: x(0), py: y(total) }];
+    const todayWeek = Math.floor(
+      (Date.now() - weeks[0].getTime()) / (7 * 24 * 60 * 60 * 1000)
+    );
+    const limit = Math.min(actualWeekly.length, todayWeek + 1);
+    for (let i = 0; i < limit; i++) {
+      aCum += actualWeekly[i];
+      aPts.push({ px: x(i + 1), py: y(Math.max(0, total - aCum)) });
+    }
+    if (aPts.length > 1) {
+      actualPath = aPts
+        .map((p, i) => `${i === 0 ? "M" : "L"}${p.px.toFixed(1)},${p.py.toFixed(1)}`)
+        .join(" ");
+    }
+  }
 
   const todayIdx = (Date.now() - weeks[0].getTime()) / (7 * 24 * 60 * 60 * 1000);
   const showToday = todayIdx >= 0 && todayIdx <= n;
@@ -393,6 +496,7 @@ function Burndown({
             </text>
           </g>
         ))}
+        {/* Ideal line */}
         <line
           x1={x(0)}
           y1={y(total)}
@@ -402,7 +506,26 @@ function Burndown({
           strokeWidth="1.5"
           strokeDasharray="5 4"
         />
-        <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" />
+        {/* Planned burn */}
+        <path
+          d={plannedPath}
+          fill="none"
+          stroke={color}
+          strokeWidth={actualPath ? 1.5 : 2.5}
+          strokeLinejoin="round"
+          strokeDasharray={actualPath ? "4 3" : undefined}
+          opacity={actualPath ? 0.6 : 1}
+        />
+        {/* Actual burn */}
+        {actualPath && (
+          <path
+            d={actualPath}
+            fill="none"
+            stroke={color}
+            strokeWidth="2.5"
+            strokeLinejoin="round"
+          />
+        )}
         {showToday && (
           <g>
             <line
@@ -431,10 +554,24 @@ function Burndown({
           {formatWeek(weeks[n - 1])}
         </text>
       </svg>
-      <div className="mt-1 flex items-center gap-4 text-xs text-muted-foreground">
+      <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+        {actualPath && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-0.5 w-5" style={{ backgroundColor: color }} />
+            actual burn
+          </span>
+        )}
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-5" style={{ backgroundColor: color }} />
-          scheduled burn ({total}h total)
+          <span
+            className="inline-block h-0.5 w-5"
+            style={{
+              backgroundColor: color,
+              opacity: actualPath ? 0.5 : 1,
+              borderTop: actualPath ? "2px dashed" : undefined,
+              height: actualPath ? 0 : undefined,
+            }}
+          />
+          scheduled ({total}h planned)
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-0 w-5 border-t border-dashed border-muted-foreground" />

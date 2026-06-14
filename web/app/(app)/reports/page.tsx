@@ -15,6 +15,7 @@ import {
 } from "@/lib/planner";
 import type { Resource } from "@/lib/planner";
 import { ResourceProfile } from "@/components/resource-profile";
+import { PageSkeleton } from "@/components/skeletons";
 
 const HORIZON = 12;
 const FREE_THRESHOLD = 8;
@@ -215,13 +216,7 @@ export default function ReportsPage() {
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [resources, allocations, weeks]);
 
-  if (isLoading) {
-    return (
-      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        Loading…
-      </div>
-    );
-  }
+  if (isLoading) return <PageSkeleton />;
 
   return (
     <div className="space-y-6">

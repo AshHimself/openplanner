@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, text, integer, numeric, date, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, text, integer, numeric, date, timestamp, uuid, index } from "drizzle-orm/pg-core";
 
 export const roleEnum = pgEnum("role", ["viewer", "planner", "admin"]);
 export const statusEnum = pgEnum("status", ["Planning", "Active", "On Hold", "Completed"]);
@@ -37,6 +37,10 @@ export const resources = pgTable("resources", {
   dayRate: numeric("day_rate"),
   avatarUrl: text("avatar_url"),
   tags: text("tags").array().default([]),
+  // Availability window — when this person joins / leaves (e.g. contractors,
+  // new hires). Null = always available.
+  startDate: date("start_date"),
+  endDate: date("end_date"),
 });
 
 export const allocations = pgTable("allocations", {
@@ -47,3 +51,26 @@ export const allocations = pgTable("allocations", {
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
 });
+
+export const projectRequirements = pgTable("project_requirements", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+  role: text("role").notNull(),
+  fte: numeric("fte").notNull(),
+  tags: text("tags").array().default([]),
+});
+
+export const timesheetEntries = pgTable(
+  "timesheet_entries",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+    resourceId: text("resource_id").references(() => resources.id, { onDelete: "set null" }),
+    weekOf: date("week_of").notNull(),
+    hoursLogged: numeric("hours_logged").notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("ts_project_week_idx").on(t.projectId, t.weekOf)]
+);

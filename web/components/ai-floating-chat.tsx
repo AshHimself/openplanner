@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { A2uiSurface, basicCatalog } from "@a2ui/react/v0_9";
+import { A2uiSurface, MarkdownContext } from "@a2ui/react/v0_9";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
+import { renderMarkdown } from "@a2ui/markdown-it";
+import { chatCatalog } from "@/components/a2ui-project-chart";
+import { openProjectDetail } from "@/lib/project-detail-bus";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Bot, Send, X, Minus, Sparkles, Loader2, AlertTriangle } from "lucide-react";
@@ -34,10 +37,22 @@ interface Message {
   a2uiSurface?: any;
 }
 
+// The server prefills the assistant turn with "<a2ui>[" so the model continues
+// from there. The prefill is NOT echoed in the stream — we add it back here.
+const PREFILL = "<a2ui>[";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseA2UIv9(raw: string): any | null {
-  const tagged = raw.match(/<a2ui>([\s\S]*?)<\/a2ui>/);
-  const src = (tagged ? tagged[1] : raw)
+  // Extract content from <a2ui>…</a2ui>, or after <a2ui> if no closing tag
+  let src: string;
+  const fullTagged = raw.match(/<a2ui>([\s\S]*?)<\/a2ui>/);
+  if (fullTagged) {
+    src = fullTagged[1];
+  } else {
+    const openTagged = raw.match(/<a2ui>([\s\S]*)/);
+    src = openTagged ? openTagged[1] : raw;
+  }
+  src = src
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "")
@@ -48,7 +63,7 @@ function parseA2UIv9(raw: string): any | null {
     try { parsed = JSON.parse(jsonStr); } catch { return null; }
     if (!Array.isArray(parsed) || parsed.length === 0) return null;
     try {
-      const processor = new MessageProcessor([basicCatalog]);
+      const processor = new MessageProcessor([chatCatalog]);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       processor.processMessages(parsed as any);
       const surfaces = Array.from(processor.model.surfacesMap.values());
@@ -98,7 +113,7 @@ function buildContext(
     const staffed = allocations
       .filter((a) => a.projectId === p.id)
       .reduce((s, a) => s + hoursInWeek(a, thisWeek), 0);
-    return `- ${p.name} (${p.code}) | ${p.status} | P${p.priority} | Manager: ${p.manager || "none"} | ${p.startDate}→${p.endDate} | Budget: ${budget} | Forecast: ${formatCurrency(forecast)}${variance ? ` | ${variance}` : ""} | Staffed this wk: ${staffed}h`;
+    return `- id:${p.id} | ${p.name} (${p.code}) | ${p.status} | P${p.priority} | Manager: ${p.manager || "none"} | ${p.startDate}→${p.endDate} | Budget: ${budget} | Forecast: ${formatCurrency(forecast)}${variance ? ` | ${variance}` : ""} | Staffed this wk: ${staffed}h`;
   });
 
   const resourceLines = resources.map((r) => {
@@ -231,16 +246,29 @@ export function AiFloatingChat() {
         }
       }
 
-      // Stream complete — parse v0.9 A2UI messages, fall back to markdown
-      const surface = parseA2UIv9(buffer);
+      // The server prefills "<a2ui>[" — prepend it back before parsing
+      const fullBuffer = PREFILL + buffer;
+      const surface = parseA2UIv9(fullBuffer);
       if (surface) {
+        // Wire A2UI Button actions (e.g. "open_project") to app behaviour.
+        try {
+          surface.onAction?.subscribe(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (action: any) => {
+              if (action?.name === "open_project" && action?.context?.projectId) {
+                openProjectDetail(String(action.context.projectId));
+              }
+            }
+          );
+        } catch { /* surface has no action source */ }
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantId ? { ...m, state: "a2ui", rawText: buffer, a2uiSurface: surface } : m
+            m.id === assistantId ? { ...m, state: "a2ui", rawText: fullBuffer, a2uiSurface: surface } : m
           )
         );
       } else {
-        const fallback = buffer.replace(/<\/?a2ui>/g, "").trim() || "No response.";
+        // Fallback: strip tags and render as markdown
+        const fallback = fullBuffer.replace(/<\/?a2ui>/g, "").trim() || "No response.";
         setMessages((prev) =>
           prev.map((m) => m.id === assistantId ? { ...m, state: "text", rawText: fallback } : m)
         );
@@ -379,7 +407,9 @@ export function AiFloatingChat() {
                       </div>
                     ) : m.state === "a2ui" && m.a2uiSurface ? (
                       <div className="max-w-[90%] min-w-0 rounded-2xl rounded-tl-sm bg-muted p-3 text-sm">
-                        <A2uiSurface surface={m.a2uiSurface} />
+                        <MarkdownContext.Provider value={renderMarkdown}>
+                          <A2uiSurface surface={m.a2uiSurface} />
+                        </MarkdownContext.Provider>
                       </div>
                     ) : (
                       <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-muted px-3 py-2">

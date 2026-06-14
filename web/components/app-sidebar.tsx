@@ -26,6 +26,8 @@ import {
   LayoutDashboard,
   Sparkles,
   Settings,
+  Clock,
+  TrendingUp,
 } from "lucide-react";
 import { openAiChat } from "@/lib/ai-chat-bus";
 
@@ -33,8 +35,10 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/timeline", label: "Timeline", icon: ChartNoAxesGantt },
   { href: "/capacity", label: "Capacity plan", icon: CalendarRange },
+  { href: "/forecast", label: "Capacity forecast", icon: TrendingUp },
   { href: "/projects", label: "Projects", icon: Briefcase },
   { href: "/resources", label: "Resources", icon: Users },
+  { href: "/timesheets", label: "Timesheets", icon: Clock },
   { href: "/reports", label: "Reports", icon: ChartColumn },
 ];
 

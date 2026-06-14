@@ -23,6 +23,8 @@ export interface Resource {
   dayRate?: number | null;
   avatarUrl?: string;
   tags?: string[];
+  startDate?: string | null; // availability window start (null = always)
+  endDate?: string | null; // availability window end (null = open-ended)
 }
 
 export interface Allocation {
@@ -50,11 +52,57 @@ export function normaliseResource(r: Record<string, unknown>): Resource {
   };
 }
 
+export interface TimesheetEntry {
+  id: string;
+  projectId: string;
+  resourceId?: string | null;
+  weekOf: string; // "YYYY-MM-DD" — Monday of the week
+  hoursLogged: number;
+  notes?: string | null;
+}
+
 export function normaliseAllocation(r: Record<string, unknown>): Allocation {
   return { ...(r as unknown as Allocation), hoursPerWeek: Number(r.hoursPerWeek) };
 }
 
+export function normaliseTimesheetEntry(r: Record<string, unknown>): TimesheetEntry {
+  return { ...(r as unknown as TimesheetEntry), hoursLogged: Number(r.hoursLogged) };
+}
+
+export interface Requirement {
+  id: string;
+  projectId: string;
+  role: string;
+  fte: number; // 1.0 FTE = STANDARD_WEEK_HOURS h/wk
+  tags?: string[];
+}
+
+export function normaliseRequirement(r: Record<string, unknown>): Requirement {
+  return { ...(r as unknown as Requirement), fte: Number(r.fte) };
+}
+
+export function useRequirements() {
+  const { data, isLoading, mutate } = useSWR<unknown[]>("/api/requirements", fetcher);
+  return {
+    requirements: (data ?? []).map((r) => normaliseRequirement(r as Record<string, unknown>)),
+    isLoading,
+    mutate,
+  };
+}
+
+// One full-time equivalent = this many hours per week.
+export const STANDARD_WEEK_HOURS = 40;
+
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+export function useTimesheets() {
+  const { data, isLoading, mutate } = useSWR<unknown[]>("/api/timesheets", fetcher);
+  return {
+    timesheets: (data ?? []).map((r) => normaliseTimesheetEntry(r as Record<string, unknown>)),
+    isLoading,
+    mutate,
+  };
+}
 
 export function usePlanner() {
   const { data: projectsRaw, isLoading: pL } = useSWR<unknown[]>("/api/projects", fetcher);
@@ -124,6 +172,27 @@ export function allocationCost(alloc: Allocation, resource?: Resource | null): n
   const end = parseLocalDate(alloc.endDate);
   const weeks = Math.max(0, Math.ceil((end.getTime() - start.getTime()) / (7 * 86400000)));
   return weeks * (alloc.hoursPerWeek / 8) * resource.dayRate;
+}
+
+export function projectActualHours(projectId: string, timesheets: TimesheetEntry[]): number {
+  return timesheets
+    .filter((t) => t.projectId === projectId)
+    .reduce((sum, t) => sum + t.hoursLogged, 0);
+}
+
+export function projectActualCost(
+  projectId: string,
+  timesheets: TimesheetEntry[],
+  resources: Resource[]
+): number {
+  const resourceMap = new Map(resources.map((r) => [r.id, r]));
+  return timesheets
+    .filter((t) => t.projectId === projectId)
+    .reduce((sum, t) => {
+      const r = t.resourceId ? resourceMap.get(t.resourceId) : null;
+      if (!r?.dayRate) return sum;
+      return sum + (t.hoursLogged / 8) * r.dayRate;
+    }, 0);
 }
 
 export function projectForecast(

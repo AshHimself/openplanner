@@ -12,6 +12,7 @@ import {
 } from "@/lib/planner";
 import type { Project } from "@/lib/planner";
 import { ProjectProfile } from "@/components/project-profile";
+import { ChartSkeleton } from "@/components/skeletons";
 
 const LEFT_W = 260;
 const ROW_H = 52;
@@ -156,8 +157,11 @@ export default function TimelinePage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        Loading…
+      <div className="space-y-4">
+        <div className="h-8 w-40 animate-pulse rounded-md bg-primary/10" />
+        <div className="rounded-md border p-4">
+          <ChartSkeleton rows={6} cols={14} />
+        </div>
       </div>
     );
   }

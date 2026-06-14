@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { mutate } from "swr";
-import { Plus, Pencil, Trash2, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, ChartNoAxesGantt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,7 @@ import {
   addWeeks,
 } from "@/lib/planner";
 import { ProjectProfile } from "@/components/project-profile";
+import { PageSkeleton } from "@/components/skeletons";
 
 const BLANK: Omit<Project, "id"> = {
   name: "",
@@ -179,13 +181,7 @@ export default function ProjectsPage() {
   const allocsForProject = allocations.filter((a) => a.projectId === allocProjectId);
   const resourceMap = new Map(resources.map((r) => [r.id, r]));
 
-  if (isLoading) {
-    return (
-      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        Loading…
-      </div>
-    );
-  }
+  if (isLoading) return <PageSkeleton />;
 
   return (
     <div className="space-y-6">
@@ -196,10 +192,18 @@ export default function ProjectsPage() {
             Portfolio of work competing for the same people.
           </p>
         </div>
-        <Button onClick={openAdd} size="sm">
-          <Plus className="mr-1.5 h-4 w-4" />
-          Add project
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/timeline">
+              <ChartNoAxesGantt className="mr-1.5 h-4 w-4" />
+              View as timeline
+            </Link>
+          </Button>
+          <Button onClick={openAdd} size="sm">
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add project
+          </Button>
+        </div>
       </div>
 
       {/* Status filter tabs */}
