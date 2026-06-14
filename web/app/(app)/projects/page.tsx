@@ -31,6 +31,9 @@ import {
 } from "@/lib/planner";
 import { ProjectProfile } from "@/components/project-profile";
 import { PageSkeleton } from "@/components/skeletons";
+import { useCustomFields } from "@/lib/planner";
+import { CustomFieldsInputs } from "@/components/custom-fields-form";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BLANK: Omit<Project, "id"> = {
   name: "",
@@ -43,6 +46,7 @@ const BLANK: Omit<Project, "id"> = {
   manager: "",
   budget: null,
   tags: [],
+  customFields: {},
 };
 
 const ALLOC_BLANK = {
@@ -55,6 +59,8 @@ const ALLOC_BLANK = {
 
 export default function ProjectsPage() {
   const { projects, resources, allocations, isLoading } = usePlanner();
+  const { projectFields } = useCustomFields();
+  const { can } = usePermissions();
 
   const [filter, setFilter] = useState("All");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -100,6 +106,7 @@ export default function ProjectsPage() {
       manager: p.manager ?? "",
       budget: p.budget ?? null,
       tags: p.tags ?? [],
+      customFields: p.customFields ?? {},
     });
     setSheetOpen(true);
   }
@@ -199,10 +206,12 @@ export default function ProjectsPage() {
               View as timeline
             </Link>
           </Button>
-          <Button onClick={openAdd} size="sm">
-            <Plus className="mr-1.5 h-4 w-4" />
-            Add project
-          </Button>
+          {can("projects.edit") && (
+            <Button onClick={openAdd} size="sm">
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add project
+            </Button>
+          )}
         </div>
       </div>
 
@@ -511,6 +520,13 @@ export default function ProjectsPage() {
                 ))}
               </div>
             </div>
+            <CustomFieldsInputs
+              fields={projectFields}
+              values={(form.customFields as Record<string, unknown>) ?? {}}
+              onChange={(key, value) =>
+                setForm({ ...form, customFields: { ...(form.customFields ?? {}), [key]: value } })
+              }
+            />
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setSheetOpen(false)}>
                 Cancel

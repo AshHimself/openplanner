@@ -18,6 +18,9 @@ import {
 } from "@/lib/planner";
 import { ResourceProfile } from "@/components/resource-profile";
 import { TableSkeleton } from "@/components/skeletons";
+import { useCustomFields } from "@/lib/planner";
+import { CustomFieldsInputs } from "@/components/custom-fields-form";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BLANK: Omit<Resource, "id"> = {
   name: "",
@@ -29,6 +32,7 @@ const BLANK: Omit<Resource, "id"> = {
   tags: [],
   startDate: null,
   endDate: null,
+  customFields: {},
 };
 
 function initials(name: string): string {
@@ -50,6 +54,8 @@ function utilizationColor(pct: number): string {
 
 export default function ResourcesPage() {
   const { resources, projects, allocations, isLoading } = usePlanner();
+  const { resourceFields } = useCustomFields();
+  const { can } = usePermissions();
 
   const [teamFilter, setTeamFilter] = useState("All");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -85,6 +91,7 @@ export default function ResourcesPage() {
       tags: r.tags ?? [],
       startDate: r.startDate ?? null,
       endDate: r.endDate ?? null,
+      customFields: r.customFields ?? {},
     });
     setSheetOpen(true);
   }
@@ -140,10 +147,12 @@ export default function ResourcesPage() {
             weekly capacity
           </p>
         </div>
-        <Button onClick={openAdd} size="sm">
-          <Plus className="mr-1.5 h-4 w-4" />
-          Add resource
-        </Button>
+        {can("resources.edit") && (
+          <Button onClick={openAdd} size="sm">
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add resource
+          </Button>
+        )}
       </div>
 
       {/* Team filter tabs */}
@@ -402,6 +411,13 @@ export default function ResourcesPage() {
               Leave blank for permanent staff. Set an end date for contractors or fixed-term
               resources so forecasts know when they finish.
             </p>
+            <CustomFieldsInputs
+              fields={resourceFields}
+              values={(form.customFields as Record<string, unknown>) ?? {}}
+              onChange={(key, value) =>
+                setForm({ ...form, customFields: { ...(form.customFields ?? {}), [key]: value } })
+              }
+            />
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setSheetOpen(false)}>
                 Cancel

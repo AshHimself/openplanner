@@ -28,8 +28,10 @@ import {
   Settings,
   Clock,
   TrendingUp,
+  Shield,
 } from "lucide-react";
 import { openAiChat } from "@/lib/ai-chat-bus";
+import { usePermissions } from "@/lib/use-permissions";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -44,6 +46,7 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { can } = usePermissions();
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -90,6 +93,16 @@ export function AppSidebar() {
               <span>AI assistant</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {can("admin.access") && (
+            <SidebarMenuItem>
+              <SidebarMenuButton isActive={pathname === "/admin"} tooltip="Admin" asChild>
+                <Link href="/admin">
+                  <Shield />
+                  <span>Admin</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <SidebarMenuButton isActive={pathname === "/settings"} tooltip="Settings" asChild>
               <Link href="/settings">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resources } from "@/lib/db/schema";
-import { requireRole } from "@/lib/api-utils";
+import { requireRole, requirePermission } from "@/lib/api-utils";
 import { randomUUID } from "crypto";
 
 export async function GET() {
@@ -13,7 +13,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { ok, res } = await requireRole("planner");
+  const { ok, res } = await requirePermission("resources.edit");
   if (!ok) return res!;
 
   const body = await req.json();

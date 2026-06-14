@@ -12,6 +12,7 @@ export interface Project {
   manager?: string;
   budget?: number | null;
   tags?: string[];
+  customFields?: Record<string, unknown> | null;
 }
 
 export interface Resource {
@@ -25,6 +26,17 @@ export interface Resource {
   tags?: string[];
   startDate?: string | null; // availability window start (null = always)
   endDate?: string | null; // availability window end (null = open-ended)
+  customFields?: Record<string, unknown> | null;
+}
+
+export interface CustomFieldDef {
+  id: string;
+  entity: "resource" | "project";
+  key: string;
+  label: string;
+  type: "text" | "number" | "date" | "select";
+  options?: string[];
+  sortOrder: number;
 }
 
 export interface Allocation {
@@ -92,6 +104,18 @@ export function useRequirements() {
 
 // One full-time equivalent = this many hours per week.
 export const STANDARD_WEEK_HOURS = 40;
+
+export function useCustomFields() {
+  const { data, isLoading, mutate } = useSWR<unknown[]>("/api/custom-fields", fetcher);
+  const all = (data ?? []) as CustomFieldDef[];
+  return {
+    fields: all,
+    resourceFields: all.filter((f) => f.entity === "resource"),
+    projectFields: all.filter((f) => f.entity === "project"),
+    isLoading,
+    mutate,
+  };
+}
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 

@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, text, integer, numeric, date, timestamp, uuid, index } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, text, integer, numeric, date, timestamp, uuid, index, boolean, jsonb, primaryKey } from "drizzle-orm/pg-core";
 
 export const roleEnum = pgEnum("role", ["viewer", "planner", "admin"]);
 export const statusEnum = pgEnum("status", ["Planning", "Active", "On Hold", "Completed"]);
@@ -24,6 +24,7 @@ export const projects = pgTable("projects", {
   manager: text("manager"),
   budget: numeric("budget"),
   tags: text("tags").array().default([]),
+  customFields: jsonb("custom_fields").default({}),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -41,6 +42,32 @@ export const resources = pgTable("resources", {
   // new hires). Null = always available.
   startDate: date("start_date"),
   endDate: date("end_date"),
+  customFields: jsonb("custom_fields").default({}),
+});
+
+// RBAC — fixed roles (viewer/planner/admin) with an admin-editable permission
+// matrix. A row enables one permission for one role; absent rows fall back to
+// the code-defined defaults.
+export const rolePermissions = pgTable(
+  "role_permissions",
+  {
+    role: text("role").notNull(), // "viewer" | "planner" | "admin"
+    permission: text("permission").notNull(),
+    enabled: boolean("enabled").notNull().default(false),
+  },
+  (t) => [primaryKey({ columns: [t.role, t.permission] })]
+);
+
+// Admin-defined custom fields attached to Resources or Projects.
+export const customFieldDefinitions = pgTable("custom_field_definitions", {
+  id: text("id").primaryKey(),
+  entity: text("entity").notNull(), // "resource" | "project"
+  key: text("key").notNull(), // stable slug used in the customFields jsonb
+  label: text("label").notNull(),
+  type: text("type").notNull(), // "text" | "number" | "date" | "select"
+  options: text("options").array().default([]), // for select
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const allocations = pgTable("allocations", {
