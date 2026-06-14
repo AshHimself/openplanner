@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { mutate } from "swr";
-import { Plus, Pencil, Trash2, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, ChartNoAxesGantt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,10 @@ import {
   addWeeks,
 } from "@/lib/planner";
 import { ProjectProfile } from "@/components/project-profile";
+import { PageSkeleton } from "@/components/skeletons";
+import { useCustomFields } from "@/lib/planner";
+import { CustomFieldsInputs } from "@/components/custom-fields-form";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BLANK: Omit<Project, "id"> = {
   name: "",
@@ -41,6 +46,7 @@ const BLANK: Omit<Project, "id"> = {
   manager: "",
   budget: null,
   tags: [],
+  customFields: {},
 };
 
 const ALLOC_BLANK = {
@@ -53,6 +59,8 @@ const ALLOC_BLANK = {
 
 export default function ProjectsPage() {
   const { projects, resources, allocations, isLoading } = usePlanner();
+  const { projectFields } = useCustomFields();
+  const { can } = usePermissions();
 
   const [filter, setFilter] = useState("All");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -98,6 +106,7 @@ export default function ProjectsPage() {
       manager: p.manager ?? "",
       budget: p.budget ?? null,
       tags: p.tags ?? [],
+      customFields: p.customFields ?? {},
     });
     setSheetOpen(true);
   }
@@ -179,13 +188,7 @@ export default function ProjectsPage() {
   const allocsForProject = allocations.filter((a) => a.projectId === allocProjectId);
   const resourceMap = new Map(resources.map((r) => [r.id, r]));
 
-  if (isLoading) {
-    return (
-      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        Loading…
-      </div>
-    );
-  }
+  if (isLoading) return <PageSkeleton />;
 
   return (
     <div className="space-y-6">
@@ -196,10 +199,20 @@ export default function ProjectsPage() {
             Portfolio of work competing for the same people.
           </p>
         </div>
-        <Button onClick={openAdd} size="sm">
-          <Plus className="mr-1.5 h-4 w-4" />
-          Add project
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/timeline">
+              <ChartNoAxesGantt className="mr-1.5 h-4 w-4" />
+              View as timeline
+            </Link>
+          </Button>
+          {can("projects.edit") && (
+            <Button onClick={openAdd} size="sm">
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add project
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Status filter tabs */}
@@ -507,6 +520,13 @@ export default function ProjectsPage() {
                 ))}
               </div>
             </div>
+            <CustomFieldsInputs
+              fields={projectFields}
+              values={(form.customFields as Record<string, unknown>) ?? {}}
+              onChange={(key, value) =>
+                setForm({ ...form, customFields: { ...(form.customFields ?? {}), [key]: value } })
+              }
+            />
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setSheetOpen(false)}>
                 Cancel

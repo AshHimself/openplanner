@@ -1,1 +1,19 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# production build
+/build
+
+# typescript / build cache
+*.tsbuildinfo
+
+# env files (keep none of these in git)
+.env*.local
+.env.web-project
+
+# vercel
 .vercel

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { projects } from "@/lib/db/schema";
-import { requireRole } from "@/lib/api-utils";
+import { requirePermission } from "@/lib/api-utils";
 import { eq } from "drizzle-orm";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { ok, res } = await requireRole("planner");
+  const { ok, res } = await requirePermission("projects.edit");
   if (!ok) return res!;
 
   const { id } = await params;
@@ -22,7 +22,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { ok, res } = await requireRole("planner");
+  const { ok, res } = await requirePermission("projects.edit");
   if (!ok) return res!;
 
   const { id } = await params;

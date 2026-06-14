@@ -26,20 +26,27 @@ import {
   LayoutDashboard,
   Sparkles,
   Settings,
+  Clock,
+  TrendingUp,
+  Shield,
 } from "lucide-react";
 import { openAiChat } from "@/lib/ai-chat-bus";
+import { usePermissions } from "@/lib/use-permissions";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/timeline", label: "Timeline", icon: ChartNoAxesGantt },
   { href: "/capacity", label: "Capacity plan", icon: CalendarRange },
+  { href: "/forecast", label: "Capacity forecast", icon: TrendingUp },
   { href: "/projects", label: "Projects", icon: Briefcase },
   { href: "/resources", label: "Resources", icon: Users },
+  { href: "/timesheets", label: "Timesheets", icon: Clock },
   { href: "/reports", label: "Reports", icon: ChartColumn },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { can } = usePermissions();
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -86,6 +93,16 @@ export function AppSidebar() {
               <span>AI assistant</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {can("admin.access") && (
+            <SidebarMenuItem>
+              <SidebarMenuButton isActive={pathname === "/admin"} tooltip="Admin" asChild>
+                <Link href="/admin">
+                  <Shield />
+                  <span>Admin</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <SidebarMenuButton isActive={pathname === "/settings"} tooltip="Settings" asChild>
               <Link href="/settings">

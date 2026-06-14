@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { mutate } from "swr";
-import { ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,10 @@ import {
   startOfWeek,
   addWeeks,
   toISO,
+  parseLocalDate,
+  formatDate,
 } from "@/lib/planner";
+import { PageSkeleton } from "@/components/skeletons";
 
 type Horizon = 12 | 26 | 52;
 const HORIZONS: { value: Horizon; label: string }[] = [
@@ -125,13 +128,7 @@ export default function CapacityPage() {
     setDeleting(false);
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        Loading…
-      </div>
-    );
-  }
+  if (isLoading) return <PageSkeleton />;
 
   return (
     <div className="space-y-4">
@@ -222,22 +219,42 @@ export default function CapacityPage() {
                         )}
                         <div>
                           <div className="font-medium">{r.name}</div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             {r.role} · {r.capacity}h/wk
+                            {r.endDate && (
+                              <span className="inline-flex items-center gap-0.5 rounded bg-amber-100 px-1 py-0 text-[10px] font-medium text-amber-700">
+                                <LogOut className="h-2.5 w-2.5" />
+                                rolls off {formatDate(r.endDate)}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
                     </td>
-                    {totals.map((h, i) => (
-                      <td key={i} className="border-l px-1 py-1 text-center">
-                        <div
-                          className={`mx-auto rounded-sm px-1 py-1 tabular-nums text-xs ${cellStyle(h, r.capacity)}`}
-                          title={`${h}h of ${r.capacity}h`}
+                    {totals.map((h, i) => {
+                      const w = weeks[i];
+                      const end = r.endDate ? parseLocalDate(r.endDate) : null;
+                      const weekEnd = addWeeks(w, 1);
+                      const isRollOff = !!end && end >= w && end < weekEnd;
+                      const gone = !!end && end < w;
+                      return (
+                        <td
+                          key={i}
+                          className={`relative border-l px-1 py-1 text-center ${isRollOff ? "border-r-2 border-r-amber-500" : ""}`}
+                          style={gone ? { backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(120,113,108,0.10) 4px, rgba(120,113,108,0.10) 8px)" } : undefined}
                         >
-                          {h > 0 ? h : "·"}
-                        </div>
-                      </td>
-                    ))}
+                          <div
+                            className={`mx-auto rounded-sm px-1 py-1 tabular-nums text-xs ${gone ? "text-muted-foreground/30" : cellStyle(h, r.capacity)}`}
+                            title={isRollOff ? `Rolls off ${formatDate(r.endDate!)}` : gone ? "After roll-off date" : `${h}h of ${r.capacity}h`}
+                          >
+                            {gone ? "—" : h > 0 ? h : "·"}
+                          </div>
+                          {isRollOff && (
+                            <LogOut className="absolute right-0 top-0 h-2.5 w-2.5 text-amber-500" />
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
 
                   {isOpen && (
